@@ -46,7 +46,6 @@ class PureFCDriverPowerVC(PureFCDriver, discovery_driver.VolumeDiscoveryDriver):
 
     def __init__(self, *args, **kwargs):
         execute = kwargs.pop("execute", utils.execute)
-        PureFCDriver.__init__(execute=execute, *args, **kwargs)
         super(PureFCDriverPowerVC, self).__init__(execute=execute, *args, **kwargs)
 
     def get_vendor_str(self):
