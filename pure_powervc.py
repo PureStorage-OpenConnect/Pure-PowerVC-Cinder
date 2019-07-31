@@ -100,13 +100,6 @@ class PureFCDriverPowerVC(PureFCDriver, discovery_driver.VolumeDiscoveryDriver):
                 # {u'nqn': [], u'iqn': [], u'wwn': [u'0001000100010001', u'0002000200020002'], u'name': u'test-h',
                 # u'hgroup': u'test-hg'}
                 print "pure_host = %s" % pure_host
-#                 itl_object = {}
-#                 # TODO: is the name of the vios_host supposed to match the name on storage?
-#                 itl_object['vios_host'] = pure_connection['host']
-#                 itl_object['source_wwn'] = pure_host['wwn']  # TODO: confirm that this is required to be initiator wwpn
-#                 itl_object['vios_wwpn'] = pure_host['wwn']
-#                 itl_object['target_wwn'] = array_ports
-#                 itl_object['target_lun'] = pure_connection['lun']
 
                 connect_object = {
                     'source_wwn': pure_host['wwn'],
@@ -130,6 +123,7 @@ class PureFCDriverPowerVC(PureFCDriver, discovery_driver.VolumeDiscoveryDriver):
                 'itl_list': itl_list,
                 'connection_info': connect_info,
                 'pg83NAA': naa_page83,
+                'provider_id': pure_volume['name'],
                 'restricted_metadata': {
                     'vdisk_id': naa_page83,
                     'vdisk_name': pure_volume['name'],
