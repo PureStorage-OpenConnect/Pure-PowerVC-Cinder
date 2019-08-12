@@ -26,7 +26,7 @@ volume_driver=cinder.volume.drivers.pure_powervc.PureFCDriverPowerVC
 from oslo_log import log as logging
 
 from powervc_cinder.volume import discovery_driver
-from cinder.volume.drivers.pure import PureBaseVolumeDriver, PureFCDriver
+from cinder.volume.drivers.pure import PureFCDriver
 from cinder import utils
 
 
