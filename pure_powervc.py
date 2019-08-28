@@ -57,7 +57,6 @@ class PureFCDriverPowerVC(PureFCDriver, discovery_driver.VolumeDiscoveryDriver):
         pure_hosts = current_array.list_hosts()  # This is more efficient than querying individual hosts
         # [u'5001500150015000', u'5001500150015001', u'5001500150015002', u'5001500150015003']
         array_ports = self._get_array_wwns(current_array)
-        print 'array_name %s' % current_array.array_name
         LOG.debug("Retrieved volumes on FlashArray %(flash_array)s: %(pure_volumes)s",
                   {"flash_array": current_array.array_name,
                    "pure_volumes": pure_volumes})
@@ -82,24 +81,19 @@ class PureFCDriverPowerVC(PureFCDriver, discovery_driver.VolumeDiscoveryDriver):
                 vol_refs_search = [v['pg83NAA'] for v in vol_refs if v['pg83NAA'] == naa_page83]
                 if not vol_refs_search:
                     continue  # Skip this volume, not in vol_refs
-            print "naa_page83 = %s" % naa_page83
             # Get hosts connected to this volume
             private_connections = current_array.list_volume_private_connections(pure_volume['name'])
             # [{u'host': u'test-h2', u'name': u'test-vol', u'lun': 1, u'size': 5368709120}]
-            print 'private_connections: %s' % private_connections
             shared_connections = current_array.list_volume_shared_connections(pure_volume['name'])
             # [{u'host': u'test-h', u'size': 5368709120, u'name': u'test-vol3', u'lun': 254, u'hgroup': u'test-hg'}]
-            print 'shared_connections: %s' % shared_connections
             private_connections.extend(shared_connections)
             all_connections = private_connections
-            print 'all connections: %s' % all_connections
             itl_list = []
             connect_info = {}
             for pure_connection in all_connections:
-                pure_host = next(h for h in pure_hosts if h['name'] == pure_connection['host']) # should be only 1
+                pure_host = next(h for h in pure_hosts if h['name'] == pure_connection['host'])  # should be only 1
                 # {u'nqn': [], u'iqn': [], u'wwn': [u'0001000100010001', u'0002000200020002'], u'name': u'test-h',
                 # u'hgroup': u'test-hg'}
-                print "pure_host = %s" % pure_host
 
                 connect_object = {
                     'source_wwn': pure_host['wwn'],
