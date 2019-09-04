@@ -23,19 +23,19 @@ volume_driver=cinder.volume.drivers.pure_powervc.PureFCDriverPowerVC
 
 """
 
+from cinder import utils
+from cinder.volume.drivers.pure import PureFCDriver
 from oslo_log import log as logging
 
 from powervc_cinder.volume import discovery_driver
-from cinder.volume.drivers.pure import PureFCDriver
-from cinder import utils
 
 
 LOG = logging.getLogger(__name__)
 
 
-class PureFCDriverPowerVC(PureFCDriver, discovery_driver.VolumeDiscoveryDriver):
-    """OpenStack Volume Driver to support Pure Storage FlashArray in
-    an IBM PowerVC environment.
+class PureFCDriverPowerVC(PureFCDriver,
+                          discovery_driver.VolumeDiscoveryDriver):
+    """OpenStack Driver to support Pure Storage in IBM PowerVC.
 
     This version of the driver enables the use of Fibre Channel for
     the underlying storage connectivity with the FlashArray. It fully
@@ -46,53 +46,66 @@ class PureFCDriverPowerVC(PureFCDriver, discovery_driver.VolumeDiscoveryDriver):
 
     def __init__(self, *args, **kwargs):
         execute = kwargs.pop("execute", utils.execute)
-        super(PureFCDriverPowerVC, self).__init__(execute=execute, *args, **kwargs)
+        super(PureFCDriverPowerVC, self).__init__(execute=execute,
+                                                  *args, **kwargs)
 
     def get_vendor_str(self):
-        return 'PURE FlashArray SCSI Disk Device'  # TODO: not sure what's required here.
+        # TODO(Pure): not sure what's required here.
+        return 'PURE FlashArray SCSI Disk Device'
 
     def get_volume_info(self, vol_refs, filter_set):
         current_array = self._get_current_array()
-        pure_volumes = current_array.list_volumes()  # TODO: Get managed volumes only?
-        pure_hosts = current_array.list_hosts()  # This is more efficient than querying individual hosts
-        # [u'5001500150015000', u'5001500150015001', u'5001500150015002', u'5001500150015003']
+        # TODO(Pure): Get managed volumes only?
+        pure_volumes = current_array.list_volumes()
+        # This is more efficient than querying individual hosts
+        pure_hosts = current_array.list_hosts()
+        # [u'5001500150015000', u'5001500150015001',
+        #  u'5001500150015002']
         array_ports = self._get_array_wwns(current_array)
-        LOG.debug("Retrieved volumes on FlashArray %(flash_array)s: %(pure_volumes)s",
+        LOG.debug("Retrieved volumes on FlashArray"
+                  " %(flash_array)s: %(pure_volumes)s",
                   {"flash_array": current_array.array_name,
                    "pure_volumes": pure_volumes})
         ret = []
-        NOT_SUPPORTED_STRING = [u'This volume is not a candidate for management because it is already attached to a '
-                                u'virtual machine.  To manage this volume with PowerVC, you must bring the virtual '
-                                u'machine under management.  Select to manage the virtual machine that has the volume '
-                                u'attached.  The attached volume will be automatically included for management.']
-        SUPPORTED_STRING = [u'This volume is a candidate for management because it is not attached to a virtual '
-                            u'machine.']
-        PURE_REGISTERED_OUI = "624A9370"  # Pure's OUI - ref http://standards.ieee.org/develop/regauth/oui/oui.txt
+        PURE_REGISTERED_OUI = "624A9370"
+        # Pure's OUI -ref http://standards.ieee.org/develop/regauth/oui/oui.txt
         # an overview of Network Address Authority (NAA) naming format:
-        #   https://bryanchain.com/2016/01/20/breaking-down-an-naa-id-world-wide-name/
-        # Network Address Authority (NAA) naming format: https://tools.ietf.org/html/rfc3980#section-5.4
-        # Pure volumes expose a SCSI unique ID of the format "naa.<OUI><VolumeSerial>"
-        # example: naa.624a9370c7b59c51e9ee20ec00011013, i.e. naa.624a9370 and 24 hex digit volume serial
+        # Network Address Authority (NAA) naming format:
+        #  https://tools.ietf.org/html/rfc3980#section-5.4
+        # Pure volumes expose a SCSI unique ID of the
+        # format "naa.<OUI><VolumeSerial>"
+        # example: naa.624a9370c7b59c51e9ee20ec00011013, i.e. naa.624a9370
+        # and 24 hex digit volume serial
 
-        # TODO: performance will suffer for large number of volumes!!!!
+        # TODO(Pure): performance will suffer for large number of volumes!!!!
         for pure_volume in pure_volumes:
             naa_page83 = PURE_REGISTERED_OUI + pure_volume['serial']
             if vol_refs:
-                vol_refs_search = [v['pg83NAA'] for v in vol_refs if v['pg83NAA'] == naa_page83]
+                vol_refs_search = ([v['pg83NAA'] for v in vol_refs
+                                    if v['pg83NAA'] == naa_page83])
                 if not vol_refs_search:
                     continue  # Skip this volume, not in vol_refs
             # Get hosts connected to this volume
-            private_connections = current_array.list_volume_private_connections(pure_volume['name'])
-            # [{u'host': u'test-h2', u'name': u'test-vol', u'lun': 1, u'size': 5368709120}]
-            shared_connections = current_array.list_volume_shared_connections(pure_volume['name'])
-            # [{u'host': u'test-h', u'size': 5368709120, u'name': u'test-vol3', u'lun': 254, u'hgroup': u'test-hg'}]
+            private_connections = \
+                current_array.list_volume_private_connections(
+                    pure_volume['name'])
+            # [{u'host': u'test-h2', u'name': u'test-vol', u'lun': 1,
+            #   u'size': 5368709120}]
+            shared_connections = \
+                current_array.list_volume_shared_connections(
+                    pure_volume['name'])
+            # [{u'host': u'test-h', u'size': 5368709120, u'name': u'test-vol3',
+            # u'lun': 254, u'hgroup': u'test-hg'}]
             private_connections.extend(shared_connections)
             all_connections = private_connections
             itl_list = []
             connect_info = {}
             for pure_connection in all_connections:
-                pure_host = next(h for h in pure_hosts if h['name'] == pure_connection['host'])  # should be only 1
-                # {u'nqn': [], u'iqn': [], u'wwn': [u'0001000100010001', u'0002000200020002'], u'name': u'test-h',
+                pure_host = next(h for h in pure_hosts
+                                 if h['name'] == pure_connection['host'])
+                # should be only 1
+                # {u'nqn': [], u'iqn': [], u'wwn': [u'0001000100010001',
+                # u'0002000200020002'], u'name': u'test-h',
                 # u'hgroup': u'test-hg'}
 
                 connect_object = {
@@ -101,18 +114,21 @@ class PureFCDriverPowerVC(PureFCDriver, discovery_driver.VolumeDiscoveryDriver):
                     'host': pure_connection['host'],
                     'target_wwn': array_ports
                 }
-                connect_info[connect_object['host']] = connect_object  # TODO: is the key the host?
-                itl_obj = discovery_driver.ITLObject(pure_host['wwn'],
-                                                     array_ports,
-                                                     pure_connection['lun'],
-                                                     vios_host=pure_connection['host'])
+                # TODO(Pure): is the key the host?
+                connect_info[connect_object['host']] = connect_object
+                itl_obj = discovery_driver.ITLObject(
+                    pure_host['wwn'], array_ports, pure_connection['lun'],
+                    vios_host=pure_connection['host'])
                 itl_list.append(itl_obj)
             vol_ret = {
                 'name': pure_volume['name'],
                 'is_mapped': False if not itl_list else True,
-                # vol_ret["storage_pool"] = ""  # TODO: what is the storage pool?
-                # vol_ret["uuid"]  # TODO: optional, but if we wanted to how would we get it?
-                'status': 'available' if not itl_list else 'in use',  # TODO: what are the 'error' conditions?
+                # TODO(Pure): what is the storage pool?
+                # vol_ret["storage_pool"] = ""
+                # TODO(Pure): optional, but how would we get it?
+                # vol_ret["uuid"]
+                # TODO(Pure): what are the 'error' conditions?
+                'status': 'available' if not itl_list else 'in use',
                 'size': self._round_bytes_to_gib(pure_volume['size']),
                 'itl_list': itl_list,
                 'connection_info': connect_info,
@@ -123,14 +139,12 @@ class PureFCDriverPowerVC(PureFCDriver, discovery_driver.VolumeDiscoveryDriver):
                     'vdisk_name': pure_volume['name'],
                     'vdisk_uid': pure_volume['serial'],
                     'naa': naa_page83
-                },
-                'support': {
-                    'status': 'supported' if not itl_list else 'not supported',
-                    'reasons': SUPPORTED_STRING if not itl_list else NOT_SUPPORTED_STRING
-                }
-            }
+                }}
+            vol_ret['support'] = {"status": "supported"}
+            self._check_volume_status(vol_ret)
+            self._check_in_use(vol_ret)
             ret.append(vol_ret)
         return ret
 
     def _pre_process_volume_info(self, volume_info, vm_blocking_volumes):
-        return  # TODO: validate that we don't need to do anything
+        return  # TODO(Pure): validate that we don't need to do anything
