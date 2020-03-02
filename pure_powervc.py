@@ -54,6 +54,11 @@ class PureFCDriverPowerVC(PureFCDriver,
         return 'PURE FlashArray SCSI Disk Device'
 
     def get_volume_info(self, vol_refs, filter_set):
+        if vol_refs or filter_set:
+            LOG.debug("Filter Set %(filter_set)s "
+                      "vol_refs : %(vol_rf)s",
+                      {"filter_set": filter_set,
+                       "vol_rf": vol_refs})
         current_array = self._get_current_array()
         # TODO(Pure): Get managed volumes only?
         pure_volumes = current_array.list_volumes()
@@ -80,6 +85,7 @@ class PureFCDriverPowerVC(PureFCDriver,
         # TODO(Pure): performance will suffer for large number of volumes!!!!
         for pure_volume in pure_volumes:
             naa_page83 = PURE_REGISTERED_OUI + pure_volume['serial']
+			vol_refs_search = None
             if vol_refs:
                 vol_refs_search = ([v['pg83NAA'] for v in vol_refs
                                     if v['pg83NAA'] == naa_page83])
@@ -140,10 +146,20 @@ class PureFCDriverPowerVC(PureFCDriver,
                     'vdisk_uid': pure_volume['serial'],
                     'naa': naa_page83
                 }}
+            wwpns = list()
+            for key in connect_info:
+                wwpns.extend(connect_info[key].get('source_wwn'))
+
+            if filter_set is not None:
+                lcl_wwpns = set([wwpn.upper() for wwpn in wwpns])
             vol_ret['support'] = {"status": "supported"}
             self._check_volume_status(vol_ret)
             self._check_in_use(vol_ret)
-            ret.append(vol_ret)
+            # If we are not filtering on WWPNs or UID's, or we ARE filtering
+            # and there is a match, add this disk to the list to be returned.
+            if (filter_set is None or len(filter_set & lcl_wwpns) > 0 or
+                    vol_refs_search):
+                ret.append(vol_ret)
         return ret
 
     def _pre_process_volume_info(self, volume_info, vm_blocking_volumes):
