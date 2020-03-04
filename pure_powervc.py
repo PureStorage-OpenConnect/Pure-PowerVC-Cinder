@@ -28,6 +28,9 @@ from cinder.volume.drivers.pure import PureFCDriver
 from oslo_log import log as logging
 
 from powervc_cinder.volume import discovery_driver
+from powervc_cinder.volume.discovery_driver import PORT_LOCATION
+from powervc_cinder.volume.discovery_driver import PORT_STATUS
+from powervc_cinder.volume.discovery_driver import UNKNOWN_VALUE
 
 
 LOG = logging.getLogger(__name__)
@@ -52,6 +55,20 @@ class PureFCDriverPowerVC(PureFCDriver,
     def get_vendor_str(self):
         # TODO(Pure): not sure what's required here.
         return 'PURE FlashArray SCSI Disk Device'
+
+    def discover_storage_ports(self, details=False, fabric_map=False,
+                               all_ports=False):
+        ports = {}
+        current_array = self._get_current_array()
+        target_ports = self._get_array_wwns(current_array)
+        for port in target_ports:
+            pinfo = {'wwpn': port,
+                     PORT_LOCATION: "",
+                     PORT_STATUS: UNKNOWN_VALUE}
+            ports[pinfo['wwpn']] = pinfo
+        if fabric_map:
+            self._add_fabric_mapping(ports)
+        return ports
 
     def get_volume_info(self, vol_refs, filter_set):
         if vol_refs or filter_set:
