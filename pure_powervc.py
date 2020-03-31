@@ -26,6 +26,8 @@ volume_driver=cinder.volume.drivers.pure_powervc.PureFCDriverPowerVC
 from cinder import utils
 from cinder.volume.drivers.pure import PureFCDriver
 from oslo_log import log as logging
+from cinder import context
+from cinder.volume import volume_types
 
 from powervc_cinder.volume import discovery_driver
 from powervc_cinder.volume.discovery_driver import PORT_LOCATION
@@ -102,7 +104,7 @@ class PureFCDriverPowerVC(PureFCDriver,
         # TODO(Pure): performance will suffer for large number of volumes!!!!
         for pure_volume in pure_volumes:
             naa_page83 = PURE_REGISTERED_OUI + pure_volume['serial']
-			vol_refs_search = None
+            vol_refs_search = None
             if vol_refs:
                 vol_refs_search = ([v['pg83NAA'] for v in vol_refs
                                     if v['pg83NAA'] == naa_page83])
@@ -181,3 +183,31 @@ class PureFCDriverPowerVC(PureFCDriver,
 
     def _pre_process_volume_info(self, volume_info, vm_blocking_volumes):
         return  # TODO(Pure): validate that we don't need to do anything
+
+    def _add_default_volume_type(self, volume):
+        """Adds the default volume type to the volume if the volume does not
+        have a volume type yet."""
+        ctxt = context.get_admin_context()
+        volume_type_id = volume.get('volume_type_id')
+        if not volume_type_id:
+            volume_type = volume_types.get_default_volume_type()
+            if volume_type:
+                volume_type_id = volume_type['id']
+                volume['volume_type_id'] = volume_type_id
+                # Update db to preserve volume_type
+                LOG.info(('Adding volume_type_id to volume=%s') % volume)
+                self.db.volume_update(ctxt, volume['id'],
+                                      {'volume_type_id': volume_type_id})
+
+    def create_cloned_volume(self, tgt_volume, src_volume):
+        """
+        Overrides the superclass create_cloned_volume.
+        Sets default volume type if one is not specified for
+        volumes created during VM deployment.
+        """
+        self._add_default_volume_type(tgt_volume)
+        return super(
+            PureFCDriverPowerVC,
+            self).create_cloned_volume(
+            tgt_volume,
+            src_volume)
