@@ -70,7 +70,8 @@ class PureFCDriverPowerVC(PureFCDriver,
                     pinfo = {
                         'wwpn': port.get('wwn'),
                         'port_name': port.get('name'),
-                        'status': (
+                        PORT_LOCATION : UNKNOWN_VALUE,
+                        PORT_STATUS: (
                             'online' if hardware[count]['status'] == 'ok'
                             else hardware[count]['status']),
                         'speed': hardware[count]['speed']}
