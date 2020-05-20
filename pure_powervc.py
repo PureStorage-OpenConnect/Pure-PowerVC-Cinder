@@ -30,7 +30,9 @@ from cinder import context
 from cinder.volume import volume_types
 
 from powervc_cinder.volume import discovery_driver
-
+from powervc_cinder.volume.discovery_driver import PORT_LOCATION
+from powervc_cinder.volume.discovery_driver import PORT_STATUS
+from powervc_cinder.volume.discovery_driver import UNKNOWN_VALUE
 
 LOG = logging.getLogger(__name__)
 
