@@ -30,9 +30,6 @@ from cinder import context
 from cinder.volume import volume_types
 
 from powervc_cinder.volume import discovery_driver
-from powervc_cinder.volume.discovery_driver import PORT_LOCATION
-from powervc_cinder.volume.discovery_driver import PORT_STATUS
-from powervc_cinder.volume.discovery_driver import UNKNOWN_VALUE
 
 
 LOG = logging.getLogger(__name__)
@@ -60,17 +57,25 @@ class PureFCDriverPowerVC(PureFCDriver,
 
     def discover_storage_ports(self, details=False, fabric_map=False,
                                all_ports=False):
-        ports = {}
+        available_ports = dict()
+        pinfo = {}
         current_array = self._get_current_array()
-        target_ports = self._get_array_wwns(current_array)
-        for port in target_ports:
-            pinfo = {'wwpn': port,
-                     PORT_LOCATION: "",
-                     PORT_STATUS: UNKNOWN_VALUE}
-            ports[pinfo['wwpn']] = pinfo
+        ports = current_array.list_ports()
+        hardware = current_array.list_hardware()
+        for port in ports:
+            for count in range(0, len(hardware)):
+                if hardware[count]['name'] == port.get('name'):
+                    pinfo = {
+                        'wwpn': port.get('wwn'),
+                        'port_name': port.get('name'),
+                        'status': (
+                            'online' if hardware[count]['status'] == 'ok'
+                            else hardware[count]['status']),
+                        'speed': hardware[count]['speed']}
+                    available_ports[pinfo['wwpn']] = pinfo
         if fabric_map:
-            self._add_fabric_mapping(ports)
-        return ports
+            self._add_fabric_mapping(available_ports)
+        return available_ports
 
     def get_volume_info(self, vol_refs, filter_set):
         if vol_refs or filter_set:
