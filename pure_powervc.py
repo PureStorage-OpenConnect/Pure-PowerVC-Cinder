@@ -46,7 +46,7 @@ class PureFCDriverPowerVC(PureFCDriver,
     supports the Cinder Fibre Channel Zone Manager.
     """
 
-    VERSION = "1.0.PowerVC"
+    VERSION = "2.0.PowerVC"
 
     def __init__(self, *args, **kwargs):
         execute = kwargs.pop("execute", utils.execute)
