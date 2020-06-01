@@ -34,7 +34,6 @@ from powervc_cinder.volume.discovery_driver import PORT_LOCATION
 from powervc_cinder.volume.discovery_driver import PORT_STATUS
 from powervc_cinder.volume.discovery_driver import UNKNOWN_VALUE
 
-
 LOG = logging.getLogger(__name__)
 
 
@@ -60,17 +59,38 @@ class PureFCDriverPowerVC(PureFCDriver,
 
     def discover_storage_ports(self, details=False, fabric_map=False,
                                all_ports=False):
-        ports = {}
+        available_ports = dict()
+        pinfo = {}
         current_array = self._get_current_array()
-        target_ports = self._get_array_wwns(current_array)
-        for port in target_ports:
-            pinfo = {'wwpn': port,
-                     PORT_LOCATION: "",
-                     PORT_STATUS: UNKNOWN_VALUE}
-            ports[pinfo['wwpn']] = pinfo
+        ports = current_array.list_ports()
+        hardware = current_array.list_hardware()
+        for port in ports:
+            for count in range(0, len(hardware)):
+                if hardware[count]['name'] == port.get('name'):
+                    port_speed = self.convert_fc_port_speed(
+                            hardware[count]['speed'])
+                    pinfo = {
+                        'wwpn': port.get('wwn'),
+                        'port_name': port.get('name'),
+                        PORT_LOCATION: UNKNOWN_VALUE,
+                        PORT_STATUS: (
+                            'online' if hardware[count]['status'] == 'ok'
+                            else hardware[count]['status']),
+                        'speed': port_speed}
+                    available_ports[pinfo['wwpn']] = pinfo
         if fabric_map:
-            self._add_fabric_mapping(ports)
-        return ports
+            self._add_fabric_mapping(available_ports)
+        return available_ports
+
+    def convert_fc_port_speed(self, speed):
+        if speed == 0:
+            return 0
+        else:
+            speed_byte = float(speed)
+            speed_kb = float(1000)
+            speed_gb = float(speed_kb ** 3)
+            if speed_gb <= speed_byte:
+                return '{0:.0f}'.format(speed_byte / speed_gb)      
 
     def get_volume_info(self, vol_refs, filter_set):
         if vol_refs or filter_set:
