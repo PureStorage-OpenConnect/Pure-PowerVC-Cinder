@@ -231,3 +231,15 @@ class PureFCDriverPowerVC(PureFCDriver,
             self).create_cloned_volume(
             tgt_volume,
             src_volume)
+
+    def create_snapshot(self, snapshot):
+        """
+        Overrides the superclass create_snapshot.
+        Ensures that non-approved characters are not
+        in the snapshot name supplied.
+        """
+        snapshot["name"] = snapshot["name"].replace('_', '-')
+        return super(
+                PureBaseVolumeDriver,
+                self).create_snapshot(
+                snapshot)
