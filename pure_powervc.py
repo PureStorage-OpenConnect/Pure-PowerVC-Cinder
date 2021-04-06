@@ -231,3 +231,8 @@ class PureFCDriverPowerVC(PureFCDriver,
             self).create_cloned_volume(
             tgt_volume,
             src_volume)
+
+    def _get_snap_name(self, snapshot):
+        """Return the name of the snapshot that Purity will use."""
+        return "%s.%s" % (self._get_vol_name(snapshot.volume),
+                          snapshot["name"].replace('_', '-'))
