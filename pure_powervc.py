@@ -33,9 +33,43 @@ from powervc_cinder.volume import discovery_driver
 from powervc_cinder.volume.discovery_driver import PORT_LOCATION
 from powervc_cinder.volume.discovery_driver import PORT_STATUS
 from powervc_cinder.volume.discovery_driver import UNKNOWN_VALUE
+from powervc_cinder.db import api as powervc_db_api
+from oslo_utils import excutils, importutils
+from cinder import exception
+from powervc_cinder import exception as powervc_exception
+from oslo_utils import units
+
+import json
+import six
+
+RESTRICTED_METADATA_VDISK_ID_KEY = "vdisk_id"
+RESTRICTED_METADATA_VDISK_UID_KEY = "vdisk_uid"
+RESTRICTED_METADATA_VDISK_NAME_KEY = "vdisk_name"
 
 LOG = logging.getLogger(__name__)
 
+def create_restricted_metadata(vol_arg=1):
+    """add restricted metadata for a new volume"""
+    def wrap(f):
+        def decorator(*args, **kwargs):
+            args[0]._validate_type(args[vol_arg])
+            ret_val = f(*args, **kwargs)
+            try:
+                args[0]._create_restricted_metadata(args[vol_arg])
+            except Exception as ex:
+                with excutils.save_and_reraise_exception():
+                    LOG.info(_("Create restricted metadata failed. "
+                               "Module: %(f_module)s, "
+                               "Function: %(f_name)s, "
+                               "Volume: %(volume)s, "
+                               "Error: %(err)s" %
+                               dict(f_module=f.__module__,
+                                    f_name=f.__name__,
+                                    volume=args[vol_arg]['id'],
+                                    err=six.text_type(ex))))
+            return ret_val
+        return decorator
+    return wrap
 
 class PureFCDriverPowerVC(PureFCDriver,
                           discovery_driver.VolumeDiscoveryDriver):
@@ -218,7 +252,8 @@ class PureFCDriverPowerVC(PureFCDriver,
                 LOG.info(('Adding volume_type_id to volume=%s') % volume)
                 self.db.volume_update(ctxt, volume['id'],
                                       {'volume_type_id': volume_type_id})
-
+    
+    @create_restricted_metadata()
     def create_cloned_volume(self, tgt_volume, src_volume):
         """
         Overrides the superclass create_cloned_volume.
@@ -236,3 +271,30 @@ class PureFCDriverPowerVC(PureFCDriver,
         """Return the name of the snapshot that Purity will use."""
         return "%s.%s" % (self._get_vol_name(snapshot.volume),
                           snapshot["name"].replace('_', '-'))
+ 
+   @create_restricted_metadata()
+    def create_volume(self, volume):
+        """Overrides the superclass create_volume.
+
+        Sets decorator to call restricted metadata
+        """
+
+        return super(
+            PureFCDriverPowerVC,
+            self).create_volume(volume)
+
+    def _create_restricted_metadata(self, volume_obj):
+            """create restricted metadata for a volume"""
+            vdisk = self.get_volume_info(volume_obj, filter_set)
+            if vdisk is not None:
+                metadata = {RESTRICTED_METADATA_VDISK_ID_KEY: vdisk['id'],
+                            RESTRICTED_METADATA_VDISK_NAME_KEY: vdisk['name'],
+                            RESTRICTED_METADATA_VDISK_UID_KEY: vdisk['vdisk_UID']
+                            }
+                LOG.debug('update_restricted_metadata metadata: %s' % metadata)
+                powervc_db_api.volume_restricted_metadata_update_or_create(
+                    context.get_admin_context(), volume_obj['id'], metadata)
+            else:
+                raise powervc_exception.SVCVdiskNotFoundException(
+                    self.endpoint_desc, volume_obj['id'],
+                    vdisk_id=volume_obj['name'])
