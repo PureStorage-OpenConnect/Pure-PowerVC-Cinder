@@ -278,10 +278,10 @@ class PureFCDriverPowerVC(PureFCDriver,
 
         Sets decorator to call restricted metadata
         """
-
-        return super(
-            PureFCDriverPowerVC,
-            self).create_volume(volume)
+        model_update = super( PureFCDriverPowerVC,
+                              self).create_volume(volume)
+        
+        return self._model_update(model_update, volume)
 
     def _create_restricted_metadata(self, volume_obj):
             """create restricted metadata for a volume"""
@@ -298,3 +298,14 @@ class PureFCDriverPowerVC(PureFCDriver,
                 raise powervc_exception.SVCVdiskNotFoundException(
                     self.endpoint_desc, volume_obj['id'],
                     vdisk_id=volume_obj['name'])
+                
+    def _model_update(self, model_update, volume):
+        """add volume wwn to the metadata of the new volume"""
+        if not model_update:
+            model_update = {}
+        meta = self.db.volume_metadata_get(
+            context.get_admin_context(), volume['id'])
+        model_update['metadata'] = meta if meta else dict()
+        attrs = self.get_volume_info(volume)
+        model_update['metadata']['volume_wwn'] = attrs['vdisk_UID']
+        return model_update     
