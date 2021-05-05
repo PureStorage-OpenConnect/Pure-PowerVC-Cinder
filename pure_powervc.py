@@ -37,6 +37,7 @@ from cinder.volume.drivers.pure import PureFCDriver
 from cinder.volume import volume_types
 from oslo_log import log as logging
 from powervc_cinder.volume import discovery_driver
+from powervc_cinder.volume.discovery_driver import METADATA_VOLUME_WWN
 from powervc_cinder.volume.discovery_driver import PORT_LOCATION
 from powervc_cinder.volume.discovery_driver import PORT_STATUS
 from powervc_cinder.volume.discovery_driver \
@@ -195,10 +196,11 @@ class PureFCDriverPowerVC(PureFCDriver,
                 'connection_info': connect_info,
                 'pg83NAA': naa_page83,
                 'provider_id': pure_volume['name'],
+                'metadata': {METADATA_VOLUME_WWN: naa_page83},
                 'restricted_metadata': {
-                    'vdisk_id': naa_page83,
+                    'vdisk_id': pure_volume['serial'],
                     'vdisk_name': pure_volume['name'],
-                    'vdisk_uid': pure_volume['serial'],
+                    'vdisk_uid': naa_page83,
                     'naa': naa_page83
                 }}
             wwpns = list()
