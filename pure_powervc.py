@@ -83,7 +83,9 @@ class PureFCDriverPowerVC(PureFCDriver,
         hardware = current_array.list_hardware()
         for port in ports:
             for count in range(0, len(hardware)):
-                if hardware[count]['name'] == port.get('name'):
+                if hardware[count]['name'] == port.get('name') and port.get(
+                    'wwn'
+                ):
                     port_speed = self.convert_fc_port_speed(
                         hardware[count]['speed'])
                     pinfo = {
